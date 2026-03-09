@@ -1,0 +1,35 @@
+[project]
+name = "trivial-transcoder"
+version = "0.1.0"
+description = "A simple Jellyfin video transcoder app built with Solara."
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "httpx>=0.28.1",
+  "pandas>=3.0.1",
+  "psutil>=7.2.2",
+  "pymediainfo>=7.0.1",
+  "solara>=1.57.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trivial_transcoder"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "COM812",  # missing-trailing-comma
+  "T20",     # flake8-print
+  "ERA",     # eradicate
+  "D",       # docstrings
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
