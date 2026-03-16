@@ -38,6 +38,17 @@
         </section>
 
         <section class="bg-gray-50 dark:bg-gray-800/20 p-6 rounded-xl border dark:border-gray-700">
+            <h3 class="font-bold mb-4 flex items-center text-orange-500">
+                <span class="mdi mdi-folder-cache mr-2"></span> Cache Directory
+            </h3>
+            <div class="flex flex-col gap-1">
+                <label class="text-xs font-bold uppercase opacity-60">Temp File Location</label>
+                <input type="text" name="cache_dir" value="{{ settings.cache_dir }}" placeholder="/tmp/transcoder" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                <p class="text-xs text-gray-500 mt-1 italic">Directory for temporary transcode files. Should be on the same filesystem as source files for atomic moves.</p>
+            </div>
+        </section>
+
+        <section class="bg-gray-50 dark:bg-gray-800/20 p-6 rounded-xl border dark:border-gray-700">
             <h3 class="font-bold mb-4 flex items-center text-purple-500">
                 <span class="mdi mdi-video-settings mr-2"></span> Transcode Settings (AV1)
             </h3>

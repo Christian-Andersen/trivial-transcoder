@@ -116,7 +116,14 @@ def get_ffmpeg_command(input_path: Path, temp_path: Path) -> list[str]:
 
 async def process_item(item: TranscodeItem) -> None:
     input_path = Path(item.path)
-    temp_path = input_path.with_suffix("").with_name(f"{input_path.stem}_temp_av1.mkv")
+    cache_dir = get_settings().get("cache_dir", "")
+
+    if cache_dir:
+        cache_path = Path(cache_dir)
+        cache_path.mkdir(parents=True, exist_ok=True)
+        temp_path = cache_path / f"{input_path.stem}_temp_av1.mkv"
+    else:
+        temp_path = input_path.with_suffix("").with_name(f"{input_path.stem}_temp_av1.mkv")
 
     if item.total_frames == 0:
         item.total_frames = await get_total_frames(item.path)

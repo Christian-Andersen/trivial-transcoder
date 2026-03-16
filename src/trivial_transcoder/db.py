@@ -57,6 +57,7 @@ def get_settings() -> dict[str, Any]:
         "crf": db.get("crf", 25),
         "grain": db.get("grain", 10),
         "path_map": db.get("path_map", ""),
+        "cache_dir": db.get("cache_dir", ""),
         "theme_dark": db.get("theme_dark", True),
     }
 
