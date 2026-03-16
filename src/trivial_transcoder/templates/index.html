@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ 'dark' if settings.theme_dark else '' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivial Transcoder</title>
+    <script src="https://unpkg.com/htmx.org@2.0.2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#121212',
+                        darkcard: '#1e1e1e',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: block; }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+        }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        #toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .toast {
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            animation: slideIn 0.3s ease-out;
+            min-width: 300px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-darkbg text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-200">
+    <div id="toast-container"></div>
+
+    <div class="max-w-6xl mx-auto p-4">
+        <header class="flex justify-between items-center mb-8 border-b dark:border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold flex items-center">
+                <span class="mdi mdi-movie-roll mr-2 text-blue-500"></span>
+                Trivial Transcoder
+            </h1>
+            <div class="flex items-center gap-6">
+                <div id="health-monitor" hx-get="/health" hx-trigger="load, every 5s" class="flex gap-4"></div>
+                <button onclick="document.getElementById('settings-modal').classList.add('show')" class="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition">
+                    <span class="mdi mdi-cog text-2xl"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Queue Section (Dynamic) -->
+        <div id="queue-section" hx-get="/queue" hx-trigger="load, queue-updated from:body" class="mb-8"></div>
+
+        <!-- Library Section (Always Loaded) -->
+        <div id="library-section" hx-get="/library" hx-trigger="load" class="bg-white dark:bg-darkcard rounded-xl shadow-lg p-6"></div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <div class="bg-white dark:bg-darkcard w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-8 relative">
+            <button onclick="document.getElementById('settings-modal').classList.remove('show')" class="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:hover:text-white text-2xl">
+                <span class="mdi mdi-close"></span>
+            </button>
+            <div hx-get="/settings" hx-trigger="load"></div>
+        </div>
+    </div>
+
+    <footer class="mt-8 text-center text-gray-500 text-sm pb-8">
+        Built with FastAPI & HTMX
+    </footer>
+
+    <script>
+        // Handle show-toast event from HX-Trigger
+        document.body.addEventListener('show-toast', function(evt) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const type = evt.detail.type || 'info';
+            const colors = {
+                success: 'bg-green-600',
+                error: 'bg-red-600',
+                warning: 'bg-yellow-600',
+                info: 'bg-blue-600'
+            };
+            
+            toast.className = `toast ${colors[type]}`;
+            toast.innerHTML = `
+                <span>${evt.detail.message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-4 opacity-70 hover:opacity-100">
+                    <span class="mdi mdi-close"></span>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateX(100%)';
+                    toast.style.transition = 'all 0.3s ease-in';
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 5000);
+        });
+
+        document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+            // Close modal if settings saved
+            if (evt.detail.target.id === 'settings-status' && evt.detail.xhr.status === 200) {
+                if (evt.detail.xhr.responseText.includes('Settings Saved')) {
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+            }
+        });
+    </script>
+</body>
+</html>

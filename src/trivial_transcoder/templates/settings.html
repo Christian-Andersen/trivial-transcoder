@@ -1,0 +1,100 @@
+<div>
+    <h2 class="text-xl font-semibold mb-6 flex items-center">
+        <span class="mdi mdi-cog mr-2"></span> Application Settings
+    </h2>
+
+    <form hx-post="/settings" hx-target="#settings-status" hx-swap="outerHTML" class="space-y-8">
+        <div id="settings-status"></div>
+
+        <section class="bg-gray-50 dark:bg-gray-800/20 p-6 rounded-xl border dark:border-gray-700">
+            <h3 class="font-bold mb-4 flex items-center text-blue-500">
+                <span class="mdi mdi-server mr-2"></span> Jellyfin Configuration
+            </h3>
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">Jellyfin URL</label>
+                    <input type="text" name="jellyfin_url" value="{{ settings.jellyfin_url }}" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">API Key</label>
+                    <input type="password" name="jellyfin_api_key" value="{{ settings.jellyfin_api_key }}" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">User ID (UUID)</label>
+                    <input type="text" name="jellyfin_user_id" value="{{ settings.jellyfin_user_id }}" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-gray-50 dark:bg-gray-800/20 p-6 rounded-xl border dark:border-gray-700">
+            <h3 class="font-bold mb-4 flex items-center text-green-500">
+                <span class="mdi mdi-folder-sync mr-2"></span> Path Mapping
+            </h3>
+            <div class="flex flex-col gap-1">
+                <label class="text-xs font-bold uppercase opacity-60">Prefix Mapping (jellyfin:local)</label>
+                <input type="text" name="path_map" value="{{ settings.path_map }}" placeholder="/media:/mnt/media" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                <p class="text-xs text-gray-500 mt-1 italic">Map Jellyfin internal paths to local paths (e.g. <code>/media:/mnt/media</code>)</p>
+            </div>
+        </section>
+
+        <section class="bg-gray-50 dark:bg-gray-800/20 p-6 rounded-xl border dark:border-gray-700">
+            <h3 class="font-bold mb-4 flex items-center text-purple-500">
+                <span class="mdi mdi-video-settings mr-2"></span> Transcode Settings (AV1)
+            </h3>
+            <div class="grid gap-6 md:grid-cols-3">
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">Preset (0-13)</label>
+                    <input type="number" name="preset" value="{{ settings.preset }}" min="0" max="13" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                    <p class="text-xs text-gray-500 mt-1 italic">Lower = Slower/Better</p>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">CRF (0-63)</label>
+                    <input type="number" name="crf" value="{{ settings.crf }}" min="0" max="63" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                    <p class="text-xs text-gray-500 mt-1 italic">Quality (lower = better)</p>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">Grain Synth (0-50)</label>
+                    <input type="number" name="grain" value="{{ settings.grain }}" min="0" max="50" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                </div>
+            </div>
+        </section>
+
+        <div class="grid md:grid-cols-2 gap-8">
+            <section class="bg-gray-50 dark:bg-gray-800/20 p-6 rounded-xl border dark:border-gray-700">
+                <h3 class="font-bold mb-4 flex items-center text-gray-400">
+                    <span class="mdi mdi-palette mr-2"></span> Theme
+                </h3>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-bold uppercase opacity-60">Theme Mode</label>
+                    <select name="theme_dark" class="bg-white dark:bg-darkbg border dark:border-gray-600 rounded p-2 focus:ring-2 ring-blue-500 outline-none">
+                        <option value="true" {{ 'selected' if settings.theme_dark }}>Dark</option>
+                        <option value="false" {{ 'selected' if not settings.theme_dark }}>Light</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="bg-red-900/10 p-6 rounded-xl border border-red-500/20">
+                <h3 class="font-bold mb-4 flex items-center text-red-500">
+                    <span class="mdi mdi-shield-alert mr-2"></span> Maintenance
+                </h3>
+                <div class="flex flex-col gap-4">
+                    <div class="flex justify-between items-center bg-black/20 p-3 rounded-lg">
+                        <div hx-get="/system/strays" hx-trigger="load, every 10s" class="text-sm font-mono opacity-70">
+                            Checking for orphaned tasks...
+                        </div>
+                        <button hx-post="/system/cleanup" hx-target="closest div" hx-swap="none" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1.5 px-3 rounded transition active:scale-95">
+                            Cleanup Stray Tasks
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-500 italic">Forces termination of all FFmpeg processes containing our temp file suffix. Use if you restarted the app while a transcode was active.</p>
+                </div>
+            </section>
+        </div>
+
+        <div class="flex gap-4 border-t dark:border-gray-700 pt-6">
+            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-8 rounded-lg shadow-lg active:scale-95 transition">
+                Save Settings
+            </button>
+        </div>
+    </form>
+</div>

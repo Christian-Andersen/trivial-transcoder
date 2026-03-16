@@ -1,0 +1,55 @@
+<div>
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-semibold flex items-center">
+            <span class="mdi mdi-movie-search mr-2"></span> Jellyfin Library
+        </h2>
+        <button hx-get="/library?scan=true" 
+                hx-target="#library-section" 
+                hx-indicator="#scan-indicator"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center shadow transition active:scale-95 disabled:opacity-50 disabled:cursor-wait">
+            <span id="scan-indicator" class="htmx-indicator mdi mdi-loading mdi-spin mr-2"></span>
+            <span class="mdi mdi-refresh mr-2"></span> Refresh Scan
+        </button>
+    </div>
+
+    {% if error %}
+    <div class="bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-lg flex justify-between items-center mb-6 animate-pulse">
+        <span><span class="mdi mdi-alert-circle mr-2"></span> {{ error }}</span>
+        <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-white">
+            <span class="mdi mdi-close"></span>
+        </button>
+    </div>
+    {% endif %}
+
+    <div class="overflow-x-auto border dark:border-gray-700 rounded-lg">
+        <table class="w-full text-left">
+            <thead class="bg-gray-50 dark:bg-gray-800 border-b dark:border-gray-700">
+                <tr>
+                    <th class="px-4 py-3 text-sm font-semibold">Watched</th>
+                    <th class="px-4 py-3 text-sm font-semibold text-right">Size (GB)</th>
+                    <th class="px-4 py-3 text-sm font-semibold text-right">Bitrate (Mbps)</th>
+                    <th class="px-4 py-3 text-sm font-semibold">Name</th>
+                    <th class="px-4 py-3 text-sm font-semibold text-center">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y dark:divide-gray-700">
+                {% for item in items %}
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                    <td class="px-4 py-3">{{ '✅' if item.watched else '❌' }}</td>
+                    <td class="px-4 py-3 font-mono text-sm text-right">{{ "%.2f"|format(item['size (GB)']) }}</td>
+                    <td class="px-4 py-3 font-mono text-sm text-right">{{ "%.2f"|format(item['bitrate (Mbps)']) }}</td>
+                    <td class="px-4 py-3 font-medium">{{ item.name }}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button hx-post="/queue/add" 
+                                hx-vals='{{ {"name": item.name, "path": item.path}|tojson }}'
+                                hx-target="#library-section"
+                                class="text-blue-500 hover:text-blue-600 font-bold px-3 py-1 rounded transition flex items-center justify-center w-full active:scale-90">
+                            <span class="mdi mdi-plus-thick mr-1"></span> ADD
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

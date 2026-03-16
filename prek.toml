@@ -1,0 +1,55 @@
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+  { id = "mixed-line-ending", args = ["--fix=no"] },
+  { id = "check-added-large-files", exclude = '(^|/)uv\.lock$' },
+  { id = "check-yaml" },
+  { id = "check-case-conflict" },
+  { id = "check-json" },
+  { id = "check-toml" },
+  { id = "check-xml" },
+  { id = "check-symlinks" },
+  { id = "check-merge-conflict" },
+  { id = "detect-private-key" },
+  { id = "check-executables-have-shebangs" },
+  { id = "fix-byte-order-marker" }
+]
+
+[[repos]]
+repo = "https://github.com/srstevenson/nb-clean"
+rev = "4.0.1"
+hooks = [
+  {
+    id = "nb-clean",
+    args = [
+      "--preserve-cell-metadata",
+      "--preserve-execution-counts",
+      "--preserve-notebook-metadata"
+    ]
+  }
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ruff-check"
+name = "ruff-check"
+language = "system"
+pass_filenames = false
+entry = "uv run -- ruff check --fix"
+
+[[repos.hooks]]
+id = "ruff-format"
+name = "ruff-format"
+language = "system"
+pass_filenames = false
+entry = "uv run -- ruff format"
+
+[[repos.hooks]]
+id = "ty-check"
+name = "ty-check"
+language = "system"
+pass_filenames = false
+entry = "uv run -- ty check"

@@ -1,2 +1,4 @@
+export PYTHON_GIL := '0'
+
 default:
-  uv run -- solara run src/trivial_transcoder/app.py
+  uv run -- fastapi dev ./src/trivial_transcoder/main.py

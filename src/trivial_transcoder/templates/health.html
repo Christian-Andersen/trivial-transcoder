@@ -1,0 +1,32 @@
+<div class="flex gap-6 items-center">
+    <div class="flex flex-col gap-1 w-24">
+        <div class="flex justify-between text-[10px] font-bold uppercase opacity-60">
+            <span>CPU</span>
+            <span>{{ cpu }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+            <div class="{{ 'bg-red-500' if cpu > 80 else 'bg-blue-500' }} h-full transition-all duration-500" style="width: {{ cpu }}%"></div>
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-1 w-24">
+        <div class="flex justify-between text-[10px] font-bold uppercase opacity-60">
+            <span>MEM</span>
+            <span>{{ mem }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
+            <div class="{{ 'bg-orange-500' if mem > 80 else 'bg-green-500' }} h-full transition-all duration-500" style="width: {{ mem }}%"></div>
+        </div>
+    </div>
+
+    {% if temps %}
+    <div class="flex gap-3 border-l dark:border-gray-700 pl-4">
+        {% for name, val in temps.items() %}
+        <div class="flex flex-col items-center">
+            <span class="text-[8px] font-bold uppercase opacity-50">{{ name }}</span>
+            <span class="text-xs font-mono {{ 'text-red-400' if val > 70 else 'text-gray-400' }}">{{ val }}°C</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
