@@ -1,9 +1,11 @@
+import asyncio
 import json
 from pathlib import Path
+from typing import Annotated
 
 import httpx
 import psutil
-from fastapi import BackgroundTasks, FastAPI, Form, Request, Response
+from fastapi import BackgroundTasks, FastAPI, Form, Query, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -23,12 +25,12 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("index.html", {"request": request, "settings": get_settings()})
 
 
 @app.get("/health", response_class=HTMLResponse)
-async def health(request: Request):
+async def health(request: Request) -> HTMLResponse:
     cpu = psutil.cpu_percent()
     mem = psutil.virtual_memory().percent
     temps = {}
@@ -39,13 +41,13 @@ async def health(request: Request):
                 for name, entries in raw_temps.items():
                     if entries:
                         temps[name.capitalize()] = entries[0].current
-        except Exception:
+        except KeyError, AttributeError:
             pass
     return templates.TemplateResponse("health.html", {"request": request, "cpu": cpu, "mem": mem, "temps": temps})
 
 
 @app.get("/library", response_class=HTMLResponse)
-async def library(request: Request, scan: bool = False, error: str | None = None):
+async def library(request: Request, scan: Annotated[bool, Query()] = False, error: str | None = None) -> HTMLResponse:  # noqa: FBT002
     items = []
     if scan:
         settings = get_settings()
@@ -89,15 +91,19 @@ async def library(request: Request, scan: bool = False, error: str | None = None
                             }
                         )
                     items.sort(key=lambda x: x["bitrate (Mbps)"], reverse=True)
-                except Exception as e:
+                except (httpx.HTTPStatusError, httpx.RequestError) as e:
                     error = f"Jellyfin Error: {e!s}"
 
     return templates.TemplateResponse("library.html", {"request": request, "items": items, "error": error})
 
 
 @app.post("/queue/add")
-async def queue_add(request: Request, background_tasks: BackgroundTasks, name: str = Form(...), path: str = Form(...)):
-    if not Path(path).exists():
+async def queue_add(
+    background_tasks: BackgroundTasks,
+    name: Annotated[str, Form(...)],
+    path: Annotated[str, Form(...)],
+) -> Response:
+    if not await asyncio.to_thread(Path(path).is_file):
         return Response(
             status_code=204,
             headers={
@@ -135,7 +141,7 @@ async def queue_add(request: Request, background_tasks: BackgroundTasks, name: s
 
 
 @app.get("/queue", response_class=HTMLResponse)
-async def get_queue(request: Request):
+async def get_queue(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         "queue.html",
         {
@@ -149,43 +155,40 @@ async def get_queue(request: Request):
 
 
 @app.post("/queue/start", response_class=HTMLResponse)
-async def queue_start(request: Request, background_tasks: BackgroundTasks):
+async def queue_start(request: Request, background_tasks: BackgroundTasks) -> HTMLResponse:
     background_tasks.add_task(run_worker)
     return await get_queue(request)
 
 
 @app.post("/queue/clear", response_class=HTMLResponse)
-async def queue_clear(request: Request):
-    state.transcode_queue[:] = [
-        it for it in state.transcode_queue if it.status == "processing" or it.status == "queued"
-    ]
+async def queue_clear(request: Request) -> HTMLResponse:
+    state.transcode_queue[:] = [it for it in state.transcode_queue if it.status in {"processing", "queued"}]
     state.persist_queue()
     return await get_queue(request)
 
 
 @app.delete("/queue/remove/{index}", response_class=HTMLResponse)
-async def queue_remove(request: Request, index: int):
-    if 0 <= index < len(state.transcode_queue):
-        if state.transcode_queue[index].status != "processing":
-            state.transcode_queue.pop(index)
-            state.persist_queue()
+async def queue_remove(request: Request, index: int) -> HTMLResponse:
+    if 0 <= index < len(state.transcode_queue) and state.transcode_queue[index].status != "processing":
+        state.transcode_queue.pop(index)
+        state.persist_queue()
     return await get_queue(request)
 
 
 @app.post("/queue/cancel/{index}", response_class=HTMLResponse)
-async def queue_cancel(request: Request, index: int):
+async def queue_cancel(request: Request, index: int) -> HTMLResponse:
     await cancel_item(index)
     return await get_queue(request)
 
 
 @app.get("/system/strays", response_class=HTMLResponse)
-async def system_strays(request: Request):
+async def system_strays(_request: Request) -> HTMLResponse:
     strays = get_stray_ffmpeg_processes()
     return HTMLResponse(f"<span>{len(strays)} orphan tasks</span>")
 
 
 @app.post("/system/cleanup", response_class=HTMLResponse)
-async def system_cleanup(request: Request):
+async def system_cleanup(_request: Request) -> Response:
     count = kill_all_ffmpeg()
     return Response(
         status_code=204,
@@ -196,25 +199,25 @@ async def system_cleanup(request: Request):
 
 
 @app.get("/settings", response_class=HTMLResponse)
-async def settings_get(request: Request):
+async def settings_get(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         "settings.html", {"request": request, "settings": get_settings(), "strays": len(get_stray_ffmpeg_processes())}
     )
 
 
 @app.post("/settings", response_class=HTMLResponse)
-async def settings_post(
-    request: Request,
-    jellyfin_url: str = Form(...),
-    jellyfin_api_key: str = Form(...),
-    jellyfin_user_id: str = Form(""),
-    path_map: str = Form(""),
-    cache_dir: str = Form(""),
-    preset: int = Form(...),
-    crf: int = Form(...),
-    grain: int = Form(...),
-    theme_dark: str = Form("true"),
-):
+async def settings_post(  # noqa: PLR0913
+    request: Request,  # noqa: ARG001
+    jellyfin_url: Annotated[str, Form(...)],
+    jellyfin_api_key: Annotated[str, Form(...)],
+    preset: Annotated[int, Form(...)],
+    crf: Annotated[int, Form(...)],
+    grain: Annotated[int, Form(...)],
+    jellyfin_user_id: Annotated[str, Form()] = "",
+    path_map: Annotated[str, Form()] = "",
+    cache_dir: Annotated[str, Form()] = "",
+    theme_dark: Annotated[str, Form()] = "true",
+) -> HTMLResponse:
     new_settings = {
         "jellyfin_url": jellyfin_url,
         "jellyfin_api_key": jellyfin_api_key,
@@ -228,5 +231,7 @@ async def settings_post(
     }
     save_settings(new_settings)
     return HTMLResponse(
-        '<div class="bg-green-600 text-white p-4 rounded-lg mb-4 animate-bounce">Settings Saved! Refreshing... <script>setTimeout(() => window.location.reload(), 1000)</script></div>'
+        '<div class="bg-green-600 text-white p-4 rounded-lg mb-4 animate-bounce">'
+        "Settings Saved! Refreshing... "
+        "<script>setTimeout(() => window.location.reload(), 1000)</script></div>"
     )

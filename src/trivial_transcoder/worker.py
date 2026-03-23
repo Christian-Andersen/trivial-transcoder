@@ -1,5 +1,6 @@
 import asyncio
 import re
+from contextlib import suppress
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
@@ -14,7 +15,7 @@ STDERR_LOG_LINES = 15
 
 
 class WorkerState:
-    def __init__(self):
+    def __init__(self) -> None:
         _raw_queue = cast("list[dict[str, Any]]", db.get("transcode_queue", []))
         self.transcode_queue: list[TranscodeItem] = [TranscodeItem.from_dict(i) for i in _raw_queue]
         self.is_processing = False
@@ -58,7 +59,7 @@ async def get_total_frames(path: str) -> int:
         stdout, _ = await process.communicate()
         if process.returncode == 0:
             return int(stdout.decode().strip())
-    except Exception:
+    except OSError, ValueError:
         pass
     return 0
 
@@ -114,13 +115,13 @@ def get_ffmpeg_command(input_path: Path, temp_path: Path) -> list[str]:
     ]
 
 
-async def process_item(item: TranscodeItem) -> None:
+async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR0915
     input_path = Path(item.path)
     cache_dir = get_settings().get("cache_dir", "")
 
     if cache_dir:
         cache_path = Path(cache_dir)
-        cache_path.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(cache_path.mkdir, parents=True, exist_ok=True)
         temp_path = cache_path / f"{input_path.stem}_temp_av1.mkv"
     else:
         temp_path = input_path.with_suffix("").with_name(f"{input_path.stem}_temp_av1.mkv")
@@ -169,15 +170,14 @@ async def process_item(item: TranscodeItem) -> None:
         else:
             await process.wait()
 
-        # Check if it was cancelled
         if item.status == "cancelled":
-            if temp_path.exists():
-                temp_path.unlink()
+            if await asyncio.to_thread(temp_path.exists):
+                await asyncio.to_thread(temp_path.unlink)
             return
 
         if process.returncode == 0:
-            if temp_path.exists():
-                temp_path.replace(input_path)
+            if await asyncio.to_thread(temp_path.exists):
+                await asyncio.to_thread(temp_path.replace, input_path)
                 item.status = "completed"
                 item.percent = 100.0
             else:
@@ -186,14 +186,14 @@ async def process_item(item: TranscodeItem) -> None:
         else:
             item.status = "failed"
             item.error = f"Exit code {process.returncode}: " + "\n".join(stderr_log)
-            if temp_path.exists():
-                temp_path.unlink()
+            if await asyncio.to_thread(temp_path.exists):
+                await asyncio.to_thread(temp_path.unlink)
 
-    except Exception as e:
+    except (OSError, asyncio.CancelledError) as e:
         item.status = "failed"
         item.error = str(e)
-        if temp_path.exists():
-            temp_path.unlink()
+        if await asyncio.to_thread(temp_path.exists):
+            await asyncio.to_thread(temp_path.unlink)
     finally:
         state.active_processes.pop(item.path, None)
         state.persist_queue()
@@ -224,32 +224,28 @@ async def cancel_item(index: int) -> None:
             item.status = "cancelled"
             process = state.active_processes.get(item.path)
             if process:
-                try:
+                with suppress(Exception):
                     process.terminate()
-                except Exception:
-                    pass
         elif item.status == "queued":
             item.status = "cancelled"
         state.persist_queue()
 
 
-def get_stray_ffmpeg_processes():
+def get_stray_ffmpeg_processes() -> list[dict[str, Any]]:
     strays = []
     current_pid = psutil.Process().pid
     for proc in psutil.process_iter(["pid", "name", "cmdline", "ppid"]):
         try:
             if proc.info["name"] == "ffmpeg":
                 cmdline = proc.info["cmdline"] or []
-                if any("_temp_av1.mkv" in arg for i, arg in enumerate(cmdline)):
-                    # Check if it's NOT a child of our current process
-                    if proc.info["ppid"] != current_pid:
-                        strays.append(proc.info)
+                if any("_temp_av1.mkv" in arg for i, arg in enumerate(cmdline)) and proc.info["ppid"] != current_pid:
+                    strays.append(proc.info)
         except psutil.NoSuchProcess, psutil.AccessDenied:
             continue
     return strays
 
 
-def kill_all_ffmpeg():
+def kill_all_ffmpeg() -> int:
     count = 0
     for proc in psutil.process_iter(["name", "cmdline"]):
         try:

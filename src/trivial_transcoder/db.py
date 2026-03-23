@@ -1,13 +1,16 @@
 import json
 import sqlite3
 from pathlib import Path
+from typing import Any
 
-DB_PATH = "trivial_transcoder.db"
+DB_PATH = Path("data/trivial_transcoder.db")
+DB_PATH.parent.mkdir(exist_ok=True)
+(DB_PATH.parent / ".gitignore").write_text("*")
 DEFAULT_JELLYFIN_URL = "http://localhost:8096"
 
 
 class Database:
-    def __init__(self, path: str = DB_PATH) -> None:
+    def __init__(self, path: Path = DB_PATH) -> None:
         self.path = str(Path(path).absolute())
         self._init_db()
 
@@ -42,9 +45,6 @@ class Database:
 
 
 db = Database()
-
-
-from typing import Any
 
 
 # Settings helper
