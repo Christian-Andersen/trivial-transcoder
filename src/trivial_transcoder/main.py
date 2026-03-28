@@ -96,11 +96,20 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def apply_path_mapping(j_path: Path | str) -> Path:
+    jellyfin_path = Path(j_path)
     try:
-        relative_j_path = Path(j_path).relative_to(settings.jellyfin_path_prefix)
-    except ValueError:
-        return Path(j_path)
-    return settings.app_path_prefix / relative_j_path
+        relative_j_path = jellyfin_path.relative_to(settings.jellyfin_path_prefix)
+    except ValueError as err:
+        if jellyfin_path.is_absolute() and not str(jellyfin_path).startswith(str(settings.jellyfin_path_prefix)):
+            msg = f"Path {j_path} is outside Jellyfin path prefix"
+            raise ValueError(msg) from err
+        return jellyfin_path
+    mapped = settings.app_path_prefix / relative_j_path
+    resolved = mapped.resolve()
+    if not str(resolved).startswith(str(settings.app_path_prefix.resolve())):
+        msg = "Path would escape app_path_prefix"
+        raise ValueError(msg)
+    return mapped
 
 
 async def get_total_frames(path: str) -> int:
@@ -237,13 +246,19 @@ async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR
             return
 
         if process.returncode == 0:
-            if await asyncio.to_thread(temp_path.exists):
-                await asyncio.to_thread(temp_path.replace, input_path)
-                item.status = TaskStatus.COMPLETED
-                item.percent = 100.0
+            if await asyncio.to_thread(temp_path.exists) and await asyncio.to_thread(input_path.exists):
+                try:
+                    await asyncio.to_thread(temp_path.replace, input_path)
+                    item.status = TaskStatus.COMPLETED
+                    item.percent = 100.0
+                except OSError as e:
+                    item.status = TaskStatus.FAILED
+                    item.error = f"Failed to replace file: {e}"
+                    if await asyncio.to_thread(temp_path.exists):
+                        await asyncio.to_thread(temp_path.unlink)
             else:
                 item.status = TaskStatus.FAILED
-                item.error = "Temp file missing"
+                item.error = "Temp file or input file missing"
         else:
             item.status = TaskStatus.FAILED
             item.error = f"Exit code {process.returncode}: " + "\n".join(stderr_log)
