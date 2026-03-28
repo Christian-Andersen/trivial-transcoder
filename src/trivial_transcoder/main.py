@@ -1,8 +1,10 @@
 import asyncio
 import datetime
+import html
 import json
 import re
 from contextlib import suppress
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -17,8 +19,14 @@ from pydantic_settings import BaseSettings
 
 FFMPEG_PROGRESS_PATTERN = re.compile(r"(frame|fps|time|speed|bitrate)= *([^ ]+)")
 MAX_MISSING_FILES_SHOWN = 20
-HTTP_UNAUTHORIZED = 401
-HTTP_FORBIDDEN = 403
+
+
+class TaskStatus(StrEnum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 def exists(path: Path) -> Path:
@@ -55,7 +63,7 @@ def _resolve_and_create_cachedir(cache_dir: str) -> str:
 class TranscodeItem(BaseModel):
     name: str
     path: str
-    status: str
+    status: TaskStatus = TaskStatus.QUEUED
     progress: float = 0.0
     total_frames: int = 0
     percent: float = 0.0
@@ -74,6 +82,11 @@ class WorkerState:
         self.transcode_queue: list[TranscodeItem] = []
         self.is_processing = False
         self.active_processes: dict[str, asyncio.subprocess.Process] = {}
+        self.lock: asyncio.Lock = asyncio.Lock()
+
+
+def escape_html(text: str) -> str:
+    return html.escape(text)
 
 
 state = WorkerState()
@@ -218,7 +231,7 @@ async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR
         else:
             await process.wait()
 
-        if item.status == "cancelled":
+        if item.status == TaskStatus.CANCELLED:
             if await asyncio.to_thread(temp_path.exists):
                 await asyncio.to_thread(temp_path.unlink)
             return
@@ -226,19 +239,19 @@ async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR
         if process.returncode == 0:
             if await asyncio.to_thread(temp_path.exists):
                 await asyncio.to_thread(temp_path.replace, input_path)
-                item.status = "completed"
+                item.status = TaskStatus.COMPLETED
                 item.percent = 100.0
             else:
-                item.status = "failed"
+                item.status = TaskStatus.FAILED
                 item.error = "Temp file missing"
         else:
-            item.status = "failed"
+            item.status = TaskStatus.FAILED
             item.error = f"Exit code {process.returncode}: " + "\n".join(stderr_log)
             if await asyncio.to_thread(temp_path.exists):
                 await asyncio.to_thread(temp_path.unlink)
 
     except (OSError, asyncio.CancelledError) as e:
-        item.status = "failed"
+        item.status = TaskStatus.FAILED
         item.error = str(e)
         if await asyncio.to_thread(temp_path.exists):
             await asyncio.to_thread(temp_path.unlink)
@@ -247,33 +260,34 @@ async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR
 
 
 async def run_worker() -> None:
-    if state.is_processing:
-        return
+    async with state.lock:
+        if state.is_processing:
+            return
 
-    state.is_processing = True
-    try:
-        while True:
-            next_item = next((it for it in state.transcode_queue if it.status == "queued"), None)
-            if not next_item:
-                break
+        state.is_processing = True
+        try:
+            while True:
+                next_item = next((it for it in state.transcode_queue if it.status == TaskStatus.QUEUED), None)
+                if not next_item:
+                    break
 
-            next_item.status = "processing"
-            await process_item(next_item)
-    finally:
-        state.is_processing = False
+                next_item.status = TaskStatus.PROCESSING
+                await process_item(next_item)
+        finally:
+            state.is_processing = False
 
 
 async def cancel_item(index: int) -> None:
     if 0 <= index < len(state.transcode_queue):
         item = state.transcode_queue[index]
-        if item.status == "processing":
-            item.status = "cancelled"
+        if item.status == TaskStatus.PROCESSING:
+            item.status = TaskStatus.CANCELLED
             process = state.active_processes.get(item.path)
             if process:
                 with suppress(Exception):
                     process.terminate()
-        elif item.status == "queued":
-            item.status = "cancelled"
+        elif item.status == TaskStatus.QUEUED:
+            item.status = TaskStatus.CANCELLED
 
 
 def get_stray_ffmpeg_processes() -> list[dict[str, Any]]:
@@ -381,36 +395,46 @@ async def queue_add(
     path: Annotated[str, Form(...)],
 ) -> Response:
     if not await asyncio.to_thread(Path(path).is_file):
+        escaped_path = escape_html(path)
         return Response(
             status_code=204,
             headers={
-                "HX-Trigger": json.dumps({"show-toast": {"message": f"❌ File not found: {path}", "type": "error"}})
+                "HX-Trigger": json.dumps(
+                    {"show-toast": {"message": f"❌ File not found: {escaped_path}", "type": "error"}}
+                )
             },
         )
 
-    if any(item.path == path for item in state.transcode_queue if item.status in ["queued", "processing"]):
+    if any(
+        item.path == path for item in state.transcode_queue if item.status in [TaskStatus.QUEUED, TaskStatus.PROCESSING]
+    ):
+        escaped_name = escape_html(name)
         return Response(
             status_code=204,
             headers={
                 "HX-Trigger": json.dumps(
                     {
-                        "show-toast": {"message": f"⚠️ Item already in queue: {name}", "type": "warning"},
+                        "show-toast": {"message": f"⚠️ Item already in queue: {escaped_name}", "type": "warning"},
                         "queue-updated": {},
                     }
                 )
             },
         )
 
-    state.transcode_queue.append(TranscodeItem(name=name, path=path, status="queued"))
+    state.transcode_queue.append(TranscodeItem(name=name, path=path, status=TaskStatus.QUEUED))
 
     if not state.is_processing:
         background_tasks.add_task(run_worker)
 
+    escaped_name = escape_html(name)
     return Response(
         status_code=204,
         headers={
             "HX-Trigger": json.dumps(
-                {"show-toast": {"message": f"✅ Added to queue: {name}", "type": "success"}, "queue-updated": {}}
+                {
+                    "show-toast": {"message": f"✅ Added to queue: {escaped_name}", "type": "success"},
+                    "queue-updated": {},
+                }
             )
         },
     )
@@ -424,8 +448,11 @@ async def get_queue(request: Request) -> HTMLResponse:
         {
             "items": state.transcode_queue,
             "is_processing": state.is_processing,
-            "any_queued": any(it.status == "queued" for it in state.transcode_queue),
-            "any_completed": any(it.status in {"completed", "cancelled", "failed"} for it in state.transcode_queue),
+            "any_queued": any(it.status == TaskStatus.QUEUED for it in state.transcode_queue),
+            "any_completed": any(
+                it.status in {TaskStatus.COMPLETED, TaskStatus.CANCELLED, TaskStatus.FAILED}
+                for it in state.transcode_queue
+            ),
         },
     )
 
@@ -438,7 +465,9 @@ async def queue_start(request: Request, background_tasks: BackgroundTasks) -> HT
 
 @app.post("/queue/clear", response_class=HTMLResponse)
 async def queue_clear(request: Request) -> HTMLResponse:
-    state.transcode_queue[:] = [it for it in state.transcode_queue if it.status in {"processing", "queued"}]
+    state.transcode_queue[:] = [
+        it for it in state.transcode_queue if it.status in {TaskStatus.PROCESSING, TaskStatus.QUEUED}
+    ]
     return await get_queue(request)
 
 
