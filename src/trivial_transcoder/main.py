@@ -363,7 +363,7 @@ async def library(request: Request, scan: bool = False, error: str | None = None
         params = {
             "Recursive": "true",
             "IncludeItemTypes": "Movie,Episode",
-            "Fields": "Path,MediaStreams,UserData,MediaSources,Size",
+            "Fields": "Path,MediaStreams,UserData,MediaSources,Size,SeriesName",
         }
         if settings.jellyfin_user_id.strip():
             params["UserId"] = str(settings.jellyfin_user_id).strip()
@@ -386,10 +386,13 @@ async def library(request: Request, scan: bool = False, error: str | None = None
                     raw_path = i.get("Path", "")
                     mapped_path = apply_path_mapping(raw_path)
                     played = i.get("UserData", {}).get("Played", False)
+                    series_name = i.get("SeriesName")
+                    name = i.get("Name")
+                    display_name = f"{series_name} - {name}" if series_name else name
 
                     items.append(
                         {
-                            "name": i.get("Name"),
+                            "name": display_name,
                             "path": str(mapped_path),
                             "size (GB)": round(size / (1024**3), 2) if size else 0,
                             "bitrate (Mbps)": round(bitrate / (10**6), 2) if bitrate else 0,

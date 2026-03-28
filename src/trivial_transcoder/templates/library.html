@@ -28,7 +28,7 @@
                     <th class="px-4 py-3 text-sm font-semibold">Watched</th>
                     <th class="px-4 py-3 text-sm font-semibold text-right">Size (GB)</th>
                     <th class="px-4 py-3 text-sm font-semibold text-right">Bitrate (Mbps)</th>
-                    <th class="px-4 py-3 text-sm font-semibold">Name</th>
+                    <th class="px-6 py-3 text-sm font-semibold">Name</th>
                     <th class="px-4 py-3 text-sm font-semibold text-center">Action</th>
                 </tr>
             </thead>
@@ -38,7 +38,7 @@
                     <td class="px-4 py-3">{{ '✅' if item.watched else '❌' }}</td>
                     <td class="px-4 py-3 font-mono text-sm text-right">{{ "%.2f"|format(item['size (GB)']) }}</td>
                     <td class="px-4 py-3 font-mono text-sm text-right">{{ "%.2f"|format(item['bitrate (Mbps)']) }}</td>
-                    <td class="px-4 py-3 font-medium">{{ item.name }}</td>
+                    <td class="px-6 py-3 font-medium">{{ item.name }}</td>
                     <td class="px-4 py-3 text-center">
                         <button hx-post="/queue/add" 
                                 hx-vals='{{ {"name": item.name, "path": item.path}|tojson }}'
