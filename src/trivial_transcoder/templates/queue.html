@@ -1,5 +1,5 @@
 {% if items %}
-<div id="queue-container" hx-get="/queue" hx-trigger="every 2s, queue-updated from:body" hx-target="#queue-section" hx-swap="innerHTML" class="bg-white dark:bg-darkcard rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+<div id="queue-container" hx-get="/queue" hx-trigger="queue-updated from:body" hx-target="#queue-section" hx-swap="innerHTML" class="bg-white dark:bg-darkcard rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
     <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-semibold flex items-center">
             <span class="mdi mdi-tray-full mr-2"></span> Active Queue
@@ -58,7 +58,10 @@
             <div class="text-[9px] font-mono text-gray-500 truncate opacity-70" title="{{ item.path }}">{{ item.path }}</div>
 
             {% if item.error %}
-            <div class="mt-1 p-2 bg-red-900/20 border border-red-500/30 rounded text-[9px] text-red-300 font-mono overflow-x-auto whitespace-pre max-h-20">
+            <div class="mt-1 p-2 bg-red-900/20 border border-red-500/30 rounded text-xs text-red-300 font-mono overflow-x-auto whitespace-pre max-h-48 relative">
+                <button onclick="const txt=this.parentElement.textContent.replace(this.querySelector('span').textContent,'').trim(); navigator.clipboard.writeText(txt); document.body.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Copied to clipboard',type:'success'}}))" class="absolute top-1 right-1 p-1 rounded cursor-pointer text-red-400 hover:text-white" title="Copy error">
+                    <span class="mdi mdi-content-copy text-sm"></span>
+                </button>
                 {{ item.error }}
             </div>
             {% endif %}

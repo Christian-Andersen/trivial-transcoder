@@ -15,9 +15,14 @@
     {% if error %}
     <div class="bg-red-900/30 border border-red-500 text-red-200 px-4 py-3 rounded-lg flex justify-between items-center mb-6 animate-pulse">
         <span><span class="mdi mdi-alert-circle mr-2"></span> {{ error }}</span>
-        <button onclick="this.parentElement.remove()" class="text-red-400 hover:text-white">
-            <span class="mdi mdi-close"></span>
-        </button>
+        <div class="flex items-center gap-2">
+            <button onclick="const err=this.closest('.bg-red-900').querySelector('span').textContent.replace('⚠️','').trim(); navigator.clipboard.writeText(err); document.body.dispatchEvent(new CustomEvent('show-toast',{detail:{message:'Copied to clipboard',type:'success'}}))" class="p-1 rounded cursor-pointer text-red-400 hover:text-white" title="Copy error">
+                <span class="mdi mdi-content-copy text-sm"></span>
+            </button>
+            <button onclick="this.parentElement.parentElement.remove()" class="text-red-400 hover:text-white">
+                <span class="mdi mdi-close"></span>
+            </button>
+        </div>
     </div>
     {% endif %}
 

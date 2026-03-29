@@ -2,7 +2,9 @@ import asyncio
 import datetime
 import html
 import json
+import os
 import re
+import sys
 from contextlib import suppress
 from enum import StrEnum
 from pathlib import Path
@@ -18,7 +20,6 @@ from pydantic import AfterValidator, BaseModel, Field, HttpUrl
 from pydantic_settings import BaseSettings
 
 FFMPEG_PROGRESS_PATTERN = re.compile(r"(frame|fps|time|speed|bitrate)= *([^ ]+)")
-MAX_MISSING_FILES_SHOWN = 20
 
 
 class TaskStatus(StrEnum):
@@ -41,23 +42,17 @@ class Settings(BaseSettings):
     jellyfin_user_id: str
     jellyfin_path_prefix: Path
     app_path_prefix: Annotated[Path, AfterValidator(exists)]
-    cache_dir: Annotated[Path, AfterValidator(exists)]
+    cache_dir: str | None = None
     preset: Annotated[int, Field(ge=0, le=13)]
     crf: Annotated[int, Field(ge=1, le=63)]
     grain: Annotated[int, Field(ge=0, le=100)]
     port: Annotated[int, Field(ge=1, le=65535)]
     startup_sample_size: Annotated[int, Field(default=100, ge=1)]
+    max_threads: Annotated[int | None, Field(default=None, ge=-1)] = None
+    nice_value: Annotated[int, Field(default=0, ge=0, le=19)] = 0
 
 
 settings = Settings()  # ty:ignore[missing-argument]
-
-
-def _resolve_and_create_cachedir(cache_dir: str) -> str:
-    if cache_dir:
-        cache_path = Path(cache_dir)
-        cache_path.mkdir(parents=True, exist_ok=True)
-        return str(cache_path.resolve())
-    return ""
 
 
 class TranscodeItem(BaseModel):
@@ -155,7 +150,7 @@ async def parse_ffmpeg_progress(line: str, item: TranscodeItem) -> None:
 
 
 def get_ffmpeg_command(input_path: Path, temp_path: Path) -> list[str]:
-    return [
+    cmd = [
         "ffmpeg",
         "-progress",
         "pipe:2",
@@ -183,9 +178,11 @@ def get_ffmpeg_command(input_path: Path, temp_path: Path) -> list[str]:
         "2",
         "-c:s",
         "copy",
-        "-y",
-        str(temp_path),
     ]
+    if settings.max_threads is not None and settings.max_threads > 0:
+        cmd.extend(["-threads", str(settings.max_threads)])
+    cmd.extend(["-y", str(temp_path)])
+    return cmd
 
 
 async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR0915
@@ -204,11 +201,18 @@ async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR
     cmd = get_ffmpeg_command(input_path, temp_path)
     stderr_log: list[str] = []
 
+    def _set_nice() -> None:
+        if settings.nice_value > 0:
+            os.nice(settings.nice_value)
+
+    preexec_fn: Any = _set_nice if sys.platform != "win32" and settings.nice_value > 0 else None
+
     try:
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            preexec_fn=preexec_fn,
         )
         state.active_processes[item.path] = process
 
@@ -307,7 +311,10 @@ async def cancel_item(index: int) -> None:
 
 def get_stray_ffmpeg_processes() -> list[dict[str, Any]]:
     strays = []
-    current_pid = psutil.Process().pid
+    try:
+        current_pid = psutil.Process().pid
+    except psutil.NoSuchProcess:
+        current_pid = None
     for proc in psutil.process_iter(["pid", "name", "cmdline", "ppid"]):
         try:
             if proc.info["name"] == "ffmpeg":
@@ -384,7 +391,11 @@ async def library(request: Request, scan: bool = False, error: str | None = None
                             size = i["MediaSources"][0].get("Size", 0)
 
                     raw_path = i.get("Path", "")
-                    mapped_path = apply_path_mapping(raw_path)
+                    try:
+                        mapped_path = apply_path_mapping(raw_path)
+                    except ValueError as e:
+                        error = f"Path mapping error: {e}"
+                        continue
                     played = i.get("UserData", {}).get("Played", False)
                     series_name = i.get("SeriesName")
                     name = i.get("Name")
@@ -491,7 +502,7 @@ async def queue_clear(request: Request) -> HTMLResponse:
 
 @app.delete("/queue/remove/{index}", response_class=HTMLResponse)
 async def queue_remove(request: Request, index: int) -> HTMLResponse:
-    if 0 <= index < len(state.transcode_queue) and state.transcode_queue[index].status != "processing":
+    if 0 <= index < len(state.transcode_queue) and state.transcode_queue[index].status != TaskStatus.PROCESSING:
         state.transcode_queue.pop(index)
     return await get_queue(request)
 
