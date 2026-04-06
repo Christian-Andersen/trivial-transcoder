@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     preset: Annotated[int, Field(ge=0, le=13)]
     crf: Annotated[int, Field(ge=1, le=63)]
     grain: Annotated[int, Field(ge=0, le=100)]
-    port: Annotated[int, Field(ge=1, le=65535)]
+    port: Annotated[int, Field(ge=1, le=65535)] = 7000
     startup_sample_size: Annotated[int, Field(default=100, ge=1)]
     max_threads: Annotated[int | None, Field(default=None, ge=-1)] = None
     nice_value: Annotated[int, Field(default=0, ge=0, le=19)] = 0
