@@ -2,6 +2,10 @@
 repo = "https://github.com/pre-commit/pre-commit-hooks"
 rev = "v6.0.0"
 hooks = [
+  {
+    id = "no-commit-to-branch",
+    args = ["--branch", "main", "--branch", "dev", "--branch", "master"],
+  },
   { id = "mixed-line-ending", args = ["--fix=no"] },
   { id = "check-added-large-files", exclude = '(^|/)uv\.lock$' },
   { id = "check-yaml" },
