@@ -19,7 +19,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import AfterValidator, BaseModel, Field, HttpUrl
 from pydantic_settings import BaseSettings
 
-FFMPEG_PROGRESS_PATTERN = re.compile(r"(frame|fps|time|speed|bitrate)= *([^ ]+)")
+FFMPEG_PROGRESS_PATTERN = re.compile(r"(frame|fps|time|speed|bitrate)=([^ ]+)")
 
 
 class TaskStatus(StrEnum):
@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     jellyfin_url: HttpUrl
     jellyfin_api_key: str
     jellyfin_user_id: str
-    jellyfin_path_prefix: Path
-    app_path_prefix: Annotated[Path, AfterValidator(exists)]
+    jellyfin_path_prefix: Path | None = None
+    app_path_prefix: Annotated[Path, AfterValidator(exists)] | None = None
     cache_dir: str | None = None
     preset: Annotated[int, Field(ge=0, le=13)]
     crf: Annotated[int, Field(ge=1, le=63)]
@@ -92,6 +92,8 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 def apply_path_mapping(j_path: Path | str) -> Path:
     jellyfin_path = Path(j_path)
+    if (settings.jellyfin_path_prefix is None) or (settings.app_path_prefix is None):
+        return jellyfin_path
     try:
         relative_j_path = jellyfin_path.relative_to(settings.jellyfin_path_prefix)
     except ValueError as err:
@@ -196,7 +198,12 @@ async def process_item(item: TranscodeItem) -> None:  # noqa: C901, PLR0912, PLR
         temp_path = input_path.with_suffix("").with_name(f"{input_path.stem}_temp_av1.mkv")
 
     if item.total_frames == 0:
+        if item.status == TaskStatus.CANCELLED:
+            return
         item.total_frames = await get_total_frames(item.path)
+
+    if item.status == TaskStatus.CANCELLED:
+        return
 
     cmd = get_ffmpeg_command(input_path, temp_path)
     stderr_log: list[str] = []
@@ -282,17 +289,18 @@ async def run_worker() -> None:
     async with state.lock:
         if state.is_processing:
             return
-
         state.is_processing = True
-        try:
-            while True:
+    try:
+        while True:
+            async with state.lock:
                 next_item = next((it for it in state.transcode_queue if it.status == TaskStatus.QUEUED), None)
                 if not next_item:
                     break
 
-                next_item.status = TaskStatus.PROCESSING
-                await process_item(next_item)
-        finally:
+            next_item.status = TaskStatus.PROCESSING
+            await process_item(next_item)
+    finally:
+        async with state.lock:
             state.is_processing = False
 
 
@@ -452,8 +460,9 @@ async def queue_add(
 
     state.transcode_queue.append(TranscodeItem(name=name, path=path, status=TaskStatus.QUEUED))
 
-    if not state.is_processing:
-        background_tasks.add_task(run_worker)
+    async with state.lock:
+        if not state.is_processing:
+            background_tasks.add_task(run_worker)
 
     escaped_name = escape_html(name)
     return Response(

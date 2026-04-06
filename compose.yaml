@@ -1,0 +1,21 @@
+services:
+  transcoder:
+    build: .
+    ports:
+      - "7000:7000"
+    environment:
+      - JELLYFIN_URL=http://192.168.1.2:8096
+      - JELLYFIN_API_KEY=be375d406dbc4f5797cef1ae9e7d1c5f
+      - JELLYFIN_USER_ID=b68640ec9baa4066acc95f337aac723a
+      - CACHE_DIR=/media/cache
+      - PRESET=4
+      - CRF=25
+      - GRAIN=10
+      - PORT=7000
+      - THEME_DARK=1
+      - STARTUP_SAMPLE_SIZE=100
+      - MAX_THREADS=-1
+      - NICE_VALUE=10
+    volumes:
+      - "~/media:/media"
+    restart: unless-stopped

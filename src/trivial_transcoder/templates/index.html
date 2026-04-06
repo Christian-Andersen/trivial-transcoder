@@ -62,7 +62,7 @@
         </header>
 
         <!-- Queue Section (Dynamic) -->
-        <div id="queue-section" hx-get="/queue" hx-trigger="load, queue-updated from:body" class="mb-8"></div>
+        <div id="queue-section" hx-get="/queue" hx-trigger="load, every 2s, queue-updated from:body" class="mb-8"></div>
 
         <!-- Library Section (Always Loaded) -->
         <div id="library-section" hx-get="/library" hx-trigger="load" class="bg-white dark:bg-darkcard rounded-xl shadow-lg p-6"></div>

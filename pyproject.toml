@@ -15,12 +15,8 @@ dependencies = [
 [project.scripts]
 trivial-transcoder = "trivial_transcoder.main:main"
 
-[build-system]
-requires = ["uv_build"]
-build-backend = "uv_build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/trivial_transcoder"]
+[tool.uv]
+package = true
 
 [tool.ruff]
 line-length = 120
@@ -37,7 +33,6 @@ convention = "google"
 
 [dependency-groups]
 dev = [
-    "prek>=0.3.8",
     "ruff>=0.15.8",
     "ty>=0.0.26",
 ]

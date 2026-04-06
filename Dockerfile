@@ -1,12 +1,20 @@
-FROM python:3.14-slim
+FROM docker.io/library/debian:trixie-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
 COPY src/ ./src/
+RUN uv sync --frozen --no-dev --compile-bytecode
 
-RUN pip install .
-
-CMD ["trivial-transcoder"]
+CMD ["/app/.venv/bin/trivial-transcoder"]
