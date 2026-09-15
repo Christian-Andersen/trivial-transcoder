@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     nice_value: Annotated[int, Field(default=0, ge=0, le=19)] = 0
 
 
-settings = Settings()  # ty:ignore[missing-argument]
+settings = Settings()
 
 
 class TranscodeItem(BaseModel):

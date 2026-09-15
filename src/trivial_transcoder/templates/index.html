@@ -83,7 +83,7 @@
                 warning: 'bg-yellow-600',
                 info: 'bg-blue-600'
             };
-            
+
             toast.className = `toast ${colors[type]}`;
             toast.innerHTML = `
                 <span>${evt.detail.message}</span>
@@ -91,9 +91,9 @@
                     <span class="mdi mdi-close"></span>
                 </button>
             `;
-            
+
             container.appendChild(toast);
-            
+
             setTimeout(() => {
                 if (toast.parentElement) {
                     toast.style.opacity = '0';

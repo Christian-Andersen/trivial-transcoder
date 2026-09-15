@@ -24,8 +24,9 @@ line-length = 120
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-  "COM812",  # missing-trailing-comma
-  "D",  # docstrings
+  "COM812", # missing-trailing-comma
+  "D",      # docstrings
+  "CPY",    # copyright
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -33,6 +34,6 @@ convention = "google"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15.8",
-    "ty>=0.0.26",
+  "ruff>=0.15.8",
+  "ty>=0.0.26",
 ]

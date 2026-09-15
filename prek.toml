@@ -1,13 +1,8 @@
 [[repos]]
-repo = "https://github.com/pre-commit/pre-commit-hooks"
-rev = "v6.0.0"
+repo = "builtin"
 hooks = [
-  {
-    id = "no-commit-to-branch",
-    args = ["--branch", "main", "--branch", "master"],
-  },
-  { id = "mixed-line-ending", args = ["--fix=no"] },
-  { id = "check-added-large-files", exclude = '(^|/)uv\.lock$' },
+  { id = "check-added-large-files", exclude = "(^|/)uv\\.lock$" },
+  { id = "mixed-line-ending" },
   { id = "check-yaml" },
   { id = "check-case-conflict" },
   { id = "check-json" },
@@ -17,21 +12,11 @@ hooks = [
   { id = "check-merge-conflict" },
   { id = "detect-private-key" },
   { id = "check-executables-have-shebangs" },
-  { id = "fix-byte-order-marker" }
-]
-
-[[repos]]
-repo = "https://github.com/srstevenson/nb-clean"
-rev = "4.0.1"
-hooks = [
-  {
-    id = "nb-clean",
-    args = [
-      "--preserve-cell-metadata",
-      "--preserve-execution-counts",
-      "--preserve-notebook-metadata"
-    ]
-  }
+  { id = "fix-byte-order-marker" },
+  { id = "trailing-whitespace" },
+  { id = "end-of-file-fixer" },
+  { id = "check-illegal-windows-names" },
+  { id = "check-shebang-scripts-are-executable" }
 ]
 
 [[repos]]
@@ -57,10 +42,3 @@ name = "ty-check"
 language = "system"
 pass_filenames = false
 entry = "uv run -- ty check"
-
-[[repos.hooks]]
-id = "uv-audit"
-name = "uv audit"
-language = "system"
-pass_filenames = false
-entry = "uv audit"
