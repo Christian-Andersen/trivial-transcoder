@@ -9,7 +9,7 @@ default:
     @just --list
 
 check:
-    uvx -- prek run --all-files
+    uv run -- prek run --all-files
 
 run:
     uv run -- fastapi dev ./src/trivial_transcoder/main.py --host 0.0.0.0
