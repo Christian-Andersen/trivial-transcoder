@@ -1,0 +1,12 @@
+name: CI
+on:
+  push:
+    branches: [main]
+jobs:
+  ci:
+    runs-on: nixos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run CI
+        run: nix develop --comand just ci
