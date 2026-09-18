@@ -2,7 +2,6 @@ set dotenv-load
 
 alias c := check
 alias r := run
-alias ci := continuous_integration
 
 [private]
 default:
@@ -17,4 +16,4 @@ run:
 audit:
     uv audit
 
-continuous_integration: audit check
+ci: audit check
