@@ -7,8 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@v14
+        uses: https://github.com/DeterminateSystems/nix-installer-action@v23
       - name: Run CI
         run: nix develop --comand just ci
