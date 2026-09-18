@@ -16,7 +16,7 @@ Suggested to use docker compose, most environment variables must be defined.
 ```yaml
 services:
   transcoder:
-    build: https://github.com/Christian-Andersen/trivial-transcoder.git
+    build: http://server/Christian-Andersen/trivial-transcoder.git
     ports:
       - "7000:7000"
     environment:
