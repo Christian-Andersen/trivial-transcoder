@@ -11,4 +11,4 @@ jobs:
       - name: Install Nix
         uses: https://github.com/DeterminateSystems/nix-installer-action@v23
       - name: Run CI
-        run: nix develop --comand just ci
+        run: nix develop --command just ci
