@@ -31,6 +31,12 @@
       "description": "Group Forgejo and GitHub Actions workflow updates into a single PR",
       "matchManagers": ["github-actions"],
       "groupName": "CI GitHub Actions"
+    },
+    {
+      "description": "Link the uv CLI Docker image to its GitHub repository for release notes",
+      "matchDatasources": ["docker"],
+      "matchDepNames": ["ghcr.io/astral-sh/uv"],
+      "sourceUrl": "https://github.com/astral-sh/uv"
     }
   ]
 }
