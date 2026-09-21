@@ -7,6 +7,20 @@
     "enabled": true,
     "schedule": ["before 6am on the first day of the month"]
   },
+  "pyenv": {
+    "enabled": false
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the CPython version pinned in uv-managed .python-version files (preserves the +freethreaded variant suffix)",
+      "managerFilePatterns": ["/(^|/)\\.python-version$/"],
+      "matchStrings": ["(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)"],
+      "datasourceTemplate": "python-version",
+      "versioningTemplate": "python",
+      "depNameTemplate": "python"
+    }
+  ],
   "packageRules": [
     {
       "description": "Group Nix flake input updates into a single PR",
