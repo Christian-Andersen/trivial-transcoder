@@ -26,6 +26,11 @@
       "description": "Group Nix flake input updates into a single PR",
       "matchManagers": ["nix"],
       "groupName": "Nix flake inputs"
+    },
+    {
+      "description": "Group Forgejo and GitHub Actions workflow updates into a single PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "CI GitHub Actions"
     }
   ]
 }
